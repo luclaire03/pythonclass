@@ -203,6 +203,12 @@ class UnoPlayer:
             self.play_card(topcard, pile)
             return
 
+        if topcard.kind == 'reverse':
+            print("The order has been reversed!")
+            topcard.kind = 'wild'
+            self.hand.append(topcard)
+            self.play_card(topcard, pile)
+
         if self.name == 'computer':
             self.take_comp_turn(deck, pile)
             return  # move on to next player
@@ -223,6 +229,11 @@ class UnoPlayer:
                     choice = int(choicestr)
             # play the chosen card from hand, add it to the pile
             self.play_card(matches[choice-1], pile)
+
+            if matches[choice-1].kind == 'reverse':
+                print("The order has been reversed!")
+                return True
+
             # chose a wild card
             if matches[choice-1].kind == 'wild' or matches[choice-1].kind == 'wild4':
                 chosencolor = input("Which color would you like to change to? [red, green, yellow, blue]:")
@@ -244,6 +255,9 @@ class UnoPlayer:
             if newcard.is_match(topcard):  # can be played
                 print("Good -- you can play that!")
                 self.play_card(newcard, pile)
+                if newcard.kind == 'reverse':
+                    print("The order has been reversed!")
+                    return True
                 # drew a wild card
                 if newcard.kind == 'wild':
                     chosencolor = input("Which color would you like to change to? [red, green, yellow, blue]: ")
@@ -262,6 +276,11 @@ class UnoPlayer:
         if len(matches) > 0:  # can play
             choice = random.randrange(len(matches))
             self.play_card(matches[choice-1], pile)
+
+            if matches[choice-1].kind == 'reverse':
+                print("The order has been reversed!")
+                return True
+
             if matches[choice - 1].kind == 'wild' or matches[choice - 1].kind == 'wild4':
                 chosencolor = random.choice(['red', 'yellow', 'green', 'blue'])
                 matches[choice - 1].color = chosencolor
@@ -277,6 +296,9 @@ class UnoPlayer:
             print("The computer drew: " + str(newcard))
             if newcard.is_match(pile.top_card()):  # can be played
                 self.play_card(newcard, pile)
+                if newcard.kind == 'reverse':
+                    print("The order has been reversed!")
+                    return True
                 if newcard.kind == 'wild':
                     chosencolor = random.choice(['red', 'yellow', 'green', 'blue'])
                     newcard.color = chosencolor
@@ -301,6 +323,7 @@ def play_uno(numPlayers):
         playerList.append(UnoPlayer(name, deck))
     # randomly assign who goes first
     currentPlayerNum = random.randrange(numPlayers)
+    direction = 1
     # play the game
     while True:
         # print the game status
@@ -315,7 +338,9 @@ def play_uno(numPlayers):
             print(playerList[currentPlayerNum].get_name()+" wins!")
             print("Thanks for playing!")
             break
+        if playerList[currentPlayerNum].take_turn(deck, pile):
+            direction = -direction
         # go to the next player
-        currentPlayerNum = (currentPlayerNum + 1) % numPlayers
+        currentPlayerNum = (currentPlayerNum + direction) % numPlayers
 
-play_uno(2)
+play_uno(3)
