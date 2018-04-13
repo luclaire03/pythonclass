@@ -10,36 +10,43 @@ class UnoCard:
     def __init__(self, rank=None, color=None, kind='standard'):
         """UnoCard(rank,color) -> UnoCard
         creates an Uno card with the given rank and color"""
-        self.rank = rank
+        self.rank = rank  # can be number in string or actions
         self.color = color
-        self.kind = kind
+        self.kind = kind  # should be wild, wild4, action, standard
 
     def __str__(self):
         """str(Unocard) -> str"""
         # special card
+        # wild card does not have color, nor rank
         if self.color is None:
             return str(self.kind) + 'card'
         # wild card w dictated color
         elif self.kind == 'wild' or self.kind == 'wild4':
             return str(self.color)+' '+str(self.kind)
-        elif self.kind != 'standard':
-            return str(self.color) + ' ' + str(self.kind)
-        # standard color
-        else:
+        elif self.kind == 'action':
+            return str(self.color) + ' ' + str(self.rank)
+        else: # standard color
             return str(self.color)+' '+str(self.rank)
 
     def is_match(self, other):
-        """UnoCard.is_match(UnoCard) -> boolean
-        returns True if the cards match in rank or color, False if not"""
+        """
+        UnoCard.is_match(UnoCard) -> boolean
+        returns True if the cards match in rank or color, False if not
+
+        The logic will be first check wild card, then check color match,
+        then rank match.
+        """
+        match = False  # default value
+
         # placing a wild
-        if not self.color == other.color:
-            return self.kind == 'wild' or (self.kind == 'wild4')
-        # all standard cards matching by number
-        elif self.rank is not None and not self.color == other.color:
-            return self.rank == other.rank
-        # other action cards by color
-        else:
-            return True
+        if self.kind == 'wild' or self.kind == 'wild4':  # wild card matches everything
+            match = True
+        elif self.color == other.color:  # color match
+            match = True
+        elif other.rank is not None:  # be careful about top wild card with no rank
+            match = self.rank == other.rank  # rank match, including action types
+
+        return match
 
 
 class UnoDeck:
@@ -52,14 +59,14 @@ class UnoDeck:
         creates a new full Uno deck"""
         self.deck = []
         for color in ['red', 'blue', 'green', 'yellow']:
-            self.deck.append(UnoCard(0, color, 'standard'))  # one 0 of each color
+            self.deck.append(UnoCard('0', color, 'standard'))  # one 0 of each color
             for i in range(2):
                 # other action couples
-                self.deck.append(UnoCard(None, color, 'skip'))
-                self.deck.append(UnoCard(None, color, 'reverse'))
-                self.deck.append(UnoCard(None, color, 'draw2'))
+                self.deck.append(UnoCard('skip', color, 'action'))
+                self.deck.append(UnoCard('reverse', color, 'action'))
+                self.deck.append(UnoCard('draw2', color, 'action'))
                 for n in range(1, 10):  # two of each of 1-9 of each color
-                    self.deck.append(UnoCard(n, color, 'standard'))
+                    self.deck.append(UnoCard(str(n), color, 'standard'))
         for i in range(8):
             self.deck.append(UnoCard(None, None, 'wild'))
             self.deck.append(UnoCard(None, None, 'wild4'))
@@ -98,6 +105,8 @@ class UnoPile:
         creates a new pile by drawing a card from the deck"""
         card = deck.deal_card()
         self.pile = [card]  # all the cards in the pile
+        self.direction = 1  # initial direction
+        self.action_done = True  # initial flag
 
     def __str__(self):
         """str(UnoPile) -> str"""
@@ -120,6 +129,18 @@ class UnoPile:
         newdeck = self.pile[:-1]
         self.pile = [self.pile[-1]]
         return newdeck
+
+    def get_direction(self):
+        return self.direction
+
+    def reverse_direction(self):
+        self.direction = -self.direction
+
+    def get_action_done(self):
+        return self.action_done
+
+    def set_action_done(self, cond):
+        self.action_done = cond
 
 
 class UnoPlayer:
@@ -148,7 +169,7 @@ class UnoPlayer:
         returns a string representation of the hand, one card per line"""
         output = ''
         for card in self.hand:
-            output += str(card) + '\n'
+            output += '\t' + str(card) + '\n'
         return output
 
     def has_won(self):
@@ -183,130 +204,116 @@ class UnoPlayer:
         # get a list of cards that can be played
         topcard = pile.top_card()
 
-        # check if need to draw 4 cards
-        if topcard.kind == 'wild4':
-            # draw cards
-            for i in range(4):
-                self.draw_card(deck)
-            print("You must draw four cards.")
-            # change for next player
-            topcard.kind = 'wild'
-            self.hand.append(topcard)
-            self.play_card(topcard, pile)
-            return  # skip turn
+        # check action_done flag
+        action_done = pile.get_action_done()
 
-        if topcard.kind == 'skip':
-            print(str(self.name) + " has been skipped!")
-            # change for next player
-            topcard.kind = 'wild'
-            self.hand.append(topcard)
-            self.play_card(topcard, pile)
+        if not action_done:  # if an action is not performed
+            # process special cards
+            # this applies to both human being and computer
+            # once done pass to next player
+            if topcard.kind == 'wild4':
+                # draw cards
+                for i in range(4):
+                    self.draw_card(deck)
+                print("You must draw four cards.")
+                # reset action_done so that next player don't do it again
+                pile.set_action_done(True)
+            elif topcard.kind == 'action':
+                if topcard.rank == 'skip':
+                    print(str(self.name) + " has been skipped!")
+                    # do nothing, change for next player
+                elif topcard.rank == 'draw2':
+                    print("Draw two cards!")
+                    self.draw_card(deck)
+                    self.draw_card(deck)
+                pile.set_action_done(True)
+
+            return  # done, next player
+        else:  # no need to consider actions
+
+            matches = [card for card in self.hand if card.is_match(topcard)]
+
+            # keep drawing until found match
+            while len(matches) == 0:
+                print("You can't play, so you have to draw.")
+                input("Press enter to draw.")
+
+                # check if deck is empty -- if so, reset it
+                if deck.is_empty():
+                    deck.reset_deck(pile)
+
+                # draw a new card from the deck
+                newcard = self.draw_card(deck)
+
+                print("You drew: "+str(newcard))
+                print(pile)
+
+                matches = [card for card in self.hand if card.is_match(topcard)]
+
+            (choice, chosencolor) = self.pick_card(matches)
+
+            matches[choice-1].color = chosencolor
+
+            # play the chosen card from hand, add it to the pile
+            self.play_card(matches[choice-1], pile)
+
+            # do not forget to reset the action flag
+            # for wild4, skip, and draw 2
+            # but not for reverse since it needs to be
+            # handled immediately
+            if matches[choice-1].kind == 'action':
+                if matches[choice-1].rank == 'reverse':
+                    pile.reverse_direction()
+                else:
+                    pile.set_action_done(False)
+            elif matches[choice-1].kind == 'wild4':
+                pile.set_action_done(False)
+
             return
 
-        if topcard.kind == 'reverse':
-            print("The order has been reversed!")
-            topcard.kind = 'wild'
-            self.hand.append(topcard)
-            self.play_card(topcard, pile)
+    def pick_card(self, matches):
+        # validate input, if no match return -1
+        choice = -1
+        chosencolor = ''
 
+        if len(matches) == 0:
+            return choice, chosencolor
+
+        # print out current hand
+        print(self.name + ' current matches are: ')
+        for i in range(len(matches)):
+            print('  ' + str(i+1) + ':' + str(matches[i]))
+
+        # handle computer
         if self.name == 'computer':
-            self.take_comp_turn(deck, pile)
-            return  # move on to next player
+            choice = random.randrange(len(matches))
 
-        print(self.name + " Your hand: " + str(len(self.hand)))
-        print(self.get_hand())
+            chosenkind = matches[choice-1].kind
 
-        matches = [card for card in self.hand if card.is_match(topcard)]
-        if len(matches) > 0:  # can play
-            for index in range(len(matches)):
-                # print the playable cards with their number
-                print(str(index+1) + ": " + str(matches[index]))
-            # get player's choice of which card to play
-            choice = 0
+            if chosenkind == 'wild' or chosenkind == 'wild4':
+                chosencolor = random.choice(['red', 'yellow', 'green', 'blue'])
+            else:  # non-wild card all have colors
+                chosencolor = matches[choice-1].color
+
+            print(self.name + 'chosen ' + str(matches[choice-1]) + ', color: ' + chosencolor)
+
+        else:  # human being
             while choice < 1 or choice > len(matches):
                 choicestr = input("Which do you want to play? ")
                 if choicestr.isdigit():
                     choice = int(choicestr)
-            # play the chosen card from hand, add it to the pile
-            self.play_card(matches[choice-1], pile)
 
-            if matches[choice-1].kind == 'reverse':
-                print("The order has been reversed!")
-                return True
-
-            # chose a wild card
-            if matches[choice-1].kind == 'wild' or matches[choice-1].kind == 'wild4':
-                chosencolor = input("Which color would you like to change to? [red, green, yellow, blue]:")
+            chosenkind = matches[choice-1].kind
+            # chose a wild card, we need to set the color
+            if chosenkind == 'wild' or chosenkind == 'wild4':
                 while chosencolor not in ['red', 'yellow', 'green', 'blue']:
                     chosencolor = input("Which color would you like to change to? [red, green, yellow, blue]: ")
-                matches[choice-1].color = chosencolor
-                print("The color is now " + str(chosencolor) + ".")
-            print(str(self.name) + " played " + str(matches[choice-1]))
+            else:  # non-wild card has a color
+                chosencolor = matches[choice-1].color
 
-        else:  # can't play
-            print("You can't play, so you have to draw.")
-            input("Press enter to draw.")
-            # check if deck is empty -- if so, reset it
-            if deck.is_empty():
-                deck.reset_deck(pile)
-            # draw a new card from the deck
-            newcard = self.draw_card(deck)
-            print("You drew: "+str(newcard))
-            if newcard.is_match(topcard):  # can be played
-                print("Good -- you can play that!")
-                self.play_card(newcard, pile)
-                if newcard.kind == 'reverse':
-                    print("The order has been reversed!")
-                    return True
-                # drew a wild card
-                if newcard.kind == 'wild':
-                    chosencolor = input("Which color would you like to change to? [red, green, yellow, blue]: ")
-                    newcard.color = chosencolor
-                    print("The color is now " + str(chosencolor) + ".")
-            else:   # still can't play
-                print("Sorry, you still can't play.")
-            input("Press enter to continue.")
+            print(str(self.name) + " chosen " + str(matches[choice - 1]) + ' color: ' + chosencolor)
 
-    def take_comp_turn(self, deck, pile):
-        """UnoPlayer.take_turn(deck,pile)
-        takes the computer player's turn in the game
-        deck is an UnoDeck representing the current deck
-        pile is an UnoPile representing the discard pile"""
-        matches = [card for card in self.hand if card.is_match(pile.top_card())]
-        if len(matches) > 0:  # can play
-            choice = random.randrange(len(matches))
-            self.play_card(matches[choice-1], pile)
-
-            if matches[choice-1].kind == 'reverse':
-                print("The order has been reversed!")
-                return True
-
-            if matches[choice - 1].kind == 'wild' or matches[choice - 1].kind == 'wild4':
-                chosencolor = random.choice(['red', 'yellow', 'green', 'blue'])
-                matches[choice - 1].color = chosencolor
-                print("The color is now " + str(chosencolor) + ".")
-            print(str(self.name) + " played " + str(matches[choice-1]))
-
-        else:  # comp can't play
-            # check if deck is empty -- if so, reset it
-            if deck.is_empty():
-                deck.reset_deck(pile)
-            # draw a new card from the deck
-            newcard = self.draw_card(deck)
-            print("The computer drew: " + str(newcard))
-            if newcard.is_match(pile.top_card()):  # can be played
-                self.play_card(newcard, pile)
-                if newcard.kind == 'reverse':
-                    print("The order has been reversed!")
-                    return True
-                if newcard.kind == 'wild':
-                    chosencolor = random.choice(['red', 'yellow', 'green', 'blue'])
-                    newcard.color = chosencolor
-                    print("The color is now " + str(chosencolor) + ".")
-                else:  # still can't play
-                    print("Sorry, you still can't play.")
-            print(str(self.name) + " played " + str(newcard))
-            return
+        return choice, chosencolor
 
 
 def play_uno(numPlayers):
@@ -323,7 +330,7 @@ def play_uno(numPlayers):
         playerList.append(UnoPlayer(name, deck))
     # randomly assign who goes first
     currentPlayerNum = random.randrange(numPlayers)
-    direction = 1
+
     # play the game
     while True:
         # print the game status
@@ -338,9 +345,8 @@ def play_uno(numPlayers):
             print(playerList[currentPlayerNum].get_name()+" wins!")
             print("Thanks for playing!")
             break
-        if playerList[currentPlayerNum].take_turn(deck, pile):
-            direction = -direction
         # go to the next player
-        currentPlayerNum = (currentPlayerNum + direction) % numPlayers
+        print('pile direction is ' + str(pile.get_direction()))
+        currentPlayerNum = (currentPlayerNum + pile.get_direction()) % numPlayers
 
 play_uno(3)
