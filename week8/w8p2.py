@@ -67,6 +67,8 @@ class GUIDie(Canvas):
             self.delete(pip)
 
 
+
+
 class Decath1500MFrame(Frame):
     '''frame for a game of 400 Meters'''
 
@@ -89,11 +91,19 @@ class Decath1500MFrame(Frame):
         self.highscore = 0
         self.attempts = 3
         self.gameround = 0
-        # set up dice
         self.dice = []
+        self.setup()
+
+    def setup(self):
+        # set up dice
+        if len(self.dice) > 0:
+            # clean up first
+            self.dice.clear()
+
         for n in range(8):
             self.dice.append(GUIDie(self, ['foul', 2, 3, 4, 5, 6], ['red']+['black']*5))
             self.dice[n].grid(row=1, column=n)
+
         # set up buttons
         self.rollButton = Button(self, text='Roll', state=ACTIVE, command=self.roll)
         self.rollButton.grid(row=2, columnspan=1)
@@ -112,16 +122,19 @@ class Decath1500MFrame(Frame):
             self.rollButton['state'] = DISABLED
             self.stopButton['text'] = 'FOUL'
             self.score = 0
+            self.gameround = 0
+            self.attempts += 1
             return
         self.score += int(self.dice[self.gameround].get_top())
         self.gameround += 1
         self.scoreLabel['text'] = 'Score: ' + str(self.score)
-        if self.gameround < 8:  # move buttons to next pair of dice
-            self.rollButton.grid(row=2, column=self.gameround, columnspan=1)
-            self.stopButton.grid(row=3, column=self.gameround, columnspan=1)
-            self.rollButton['state'] = ACTIVE
         if self.gameround == 8:
             self.attempts += 1
+            self.gameround = 0
+        # move buttons to next pair of dice
+        self.rollButton.grid(row=2, column=self.gameround, columnspan=1)
+        self.stopButton.grid(row=3, column=self.gameround, columnspan=1)
+        self.rollButton['state'] = ACTIVE
 
     def stop(self):
         '''Decath400MFrame.keep()
@@ -137,6 +150,10 @@ class Decath1500MFrame(Frame):
         else:  # figure out how to reset this!
             self.gameround = 0
             self.score = 0
+            self.stopButton.grid_remove()
+            self.rollButton.grid_remove()
+            self.setup()
+
 
 
 # play the game
