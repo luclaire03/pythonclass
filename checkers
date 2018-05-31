@@ -5,7 +5,8 @@ class CheckerTile(Canvas):
     '''represents a square in checkers'''
 
     def __init__(self, master, r, c):
-        Canvas.__init__(self, master, width=50, height=50, bg='blanched almond')
+        Canvas.__init__(self, master, width=50, height=50,
+                        bg='blanched almond', highlightthickness=0)
         odd = [1, 3, 5, 7]
         even = [0, 2, 4, 6, 8]
         if r in odd and c not in odd:
@@ -17,22 +18,28 @@ class CheckerTile(Canvas):
         self.selected = False
         self.bind('<Button-1>', self.selected)
 
-    def selected(self, event):
+    def selected(self):
+        '''NOT WORKING'''
         self.selected = not self.selected
         if self.selected:
-            self['bd'] = 'black'
-            self['bd'] = 5
+            self.create_text(25, 25, text='*')
+            # self['highlightthickness'] = 5
+            # self['fg'] = 'black'
         else:
-            self['bd'] = 0
+            self['text'] = ''
+            # self['highlightthickness'] = 0
+            # self['fg'] = self['bg']
 
     def make_color(self, color):
         '''ReversiSquare.make_color(color)
         changes color of piece on square to specified color'''
+        self.delete_piece()
+        self.create_oval(9, 9, 40, 40, fill=color)
+
+    def delete_piece(self):
         ovalList = self.find_all()  # remove existing piece
         for oval in ovalList:
             self.delete(oval)
-        self.create_oval(10, 10, 44, 44, fill=color)
-
 
 class CheckerBoard:
 
@@ -64,10 +71,25 @@ class CheckerGame(Frame):
         self.turnLabel = Label(self, width=3, height=1, bg='white', text='Turn:', fg='black')
         self.turnLabel.grid(row=9, column=1)
 
+    def get_click(self, event):
+        coords = event.widget.get_position()
+        if self.board.tiles[coords].selected:
+            origpiece = coords
+        else:
+            newposition = coords
+            self.move_piece(coords)
+
+    def move_piece(self, coords):
+        if True:
+            self.board.tiles[coords].delete_piece()
+
+    def validate(self, coords):
+        pass
+
 
 def play_checkers():
     root = Tk()
-    root.title = 'Checkers'
+    root.title('Checkers')
     C = CheckerGame(root)
     C.mainloop()
 
