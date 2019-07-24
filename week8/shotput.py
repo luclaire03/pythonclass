@@ -1,8 +1,4 @@
 # Python Class 1699
-# Lesson 8 Problem 2
-# Author: luclaire (336193)
-
-# Python Class 1699
 # Lesson 8 Problem 1 Part (b)
 # Author: luclaire (336193)
 
@@ -67,14 +63,12 @@ class GUIDie(Canvas):
             self.delete(pip)
 
 
-
-
-class Decath1500MFrame(Frame):
+class ShoutPutFrame(Frame):
     '''frame for a game of 400 Meters'''
 
     def __init__(self, master, name):
-        '''Decath400MFrame(master,name) -> Decath400MFrame
-        creates a new 400 Meters frame
+        '''ShotPutFrame(master,name) -> ShotPutFrame
+        creates a new shot put frame
         name is the name of the player'''
         # set up Frame object
         Frame.__init__(self, master)
@@ -82,19 +76,21 @@ class Decath1500MFrame(Frame):
         # label for player's name
         Label(self, text=name, font=('Arial', 18)).grid(columnspan=3, sticky=W)
         # set up score and rerolls
-        self.scoreLabel = Label(self, text='Score: 0', font=('Arial', 18))
+        self.scoreLabel = Label(self, text='Attempt # 1 Score: 0', font=('Arial', 18))
         self.scoreLabel.grid(row=0, column=3, columnspan=2)
         self.highscoreLabel = Label(self, text='High Score: 0', font=('Arial', 18))
         self.highscoreLabel.grid(row=0, column=5, columnspan=3, sticky=E)
         # initialize game data
         self.score = 0
         self.highscore = 0
-        self.attempts = 3
+        self.attempts = 1
         self.gameround = 0
         self.dice = []
         self.setup()
 
     def setup(self):
+        '''ShotPutFrame.setup()
+        sets up eight dice for a round'''
         # set up dice
         if len(self.dice) > 0:
             # clean up first
@@ -111,49 +107,62 @@ class Decath1500MFrame(Frame):
         self.stopButton.grid(row=3, columnspan=1)
 
     def roll(self):
-        '''Decath400MFrame.roll()
+        '''ShotPutFrame.roll()
         handler method for the roll button click'''
-        # roll both dice
+        if self.attempts == 3:
+            self.stopButton.grid_remove()
+            self.rollButton.grid_remove()
+            self.scoreLabel['text'] = 'Game over'
+        # after first is rolled
         if self.gameround == 0:
             self.stopButton['state'] = ACTIVE
         self.dice[self.gameround].roll()
+        # if fouled
         if self.dice[self.gameround].get_top() == 'foul':
             self.scoreLabel['text'] = 'ATTEMPT FOULED'
             self.rollButton['state'] = DISABLED
             self.stopButton['text'] = 'FOUL'
+            # reset frame
             self.score = 0
             self.gameround = 0
+            # add an attempt
             self.attempts += 1
             return
         self.score += int(self.dice[self.gameround].get_top())
         self.gameround += 1
-        self.scoreLabel['text'] = 'Score: ' + str(self.score)
+        self.scoreLabel['text'] = 'Attempt #' + str(self.attempts) +\
+                                  ' Score: ' + str(self.score)
+        # rolled all dice
         if self.gameround == 8:
             self.attempts += 1
             self.gameround = 0
+            if self.score > self.highscore:
+                self.highscore = self.score
+                self.highscoreLabel['text'] = 'High Score: ' + str(self.highscore)
+            self.stopButton.grid_remove()
+            self.rollButton.grid_remove()
+            self.setup()
+            self.score = 0
         # move buttons to next pair of dice
         self.rollButton.grid(row=2, column=self.gameround, columnspan=1)
         self.stopButton.grid(row=3, column=self.gameround, columnspan=1)
         self.rollButton['state'] = ACTIVE
 
     def stop(self):
-        '''Decath400MFrame.keep()
+        '''ShoutPutFrame.stop()
         handler method for the keep button click'''
+        # prep another attempt
+        self.gameround = 0
+        self.stopButton.grid_remove()
+        self.rollButton.grid_remove()
+        self.setup()
         # add dice to score and update the scoreboard
-        self.attempts += 1
-        self.highscore = self.score
-        self.highscoreLabel['text'] = 'High Score: ' + str(self.highscore)
-        if self.attempts == 3:
-            self.stopButton.grid_remove()
-            self.rollButton.grid_remove()
-            self.scoreLabel['text'] = 'Game over'
-        else:  # figure out how to reset this!
-            self.gameround = 0
-            self.score = 0
-            self.stopButton.grid_remove()
-            self.rollButton.grid_remove()
-            self.setup()
-
+        if not self.dice[self.gameround].get_top() == 'foul':
+            self.attempts += 1
+        if self.score > self.highscore:
+            self.highscore = self.score
+            self.highscoreLabel['text'] = 'High Score: ' + str(self.highscore)
+        self.score = 0
 
 
 # play the game
@@ -161,5 +170,5 @@ name = input("Enter your name: ")
 root = Tk()
 
 root.title('1500 Meters')
-game = Decath1500MFrame(root, name)
+game = ShoutPutFrame(root, name)
 game.mainloop()
